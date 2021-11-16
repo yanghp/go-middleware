@@ -10,13 +10,14 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func Security(next http.Handler) http.Handler {
@@ -105,6 +106,8 @@ func decryptRequest(req *http.Request, aesKey *AesKey) error {
 	if err != nil {
 		return err
 	}
+	defer req.Body.Close()
+
 	decodeBody, err := base64.StdEncoding.DecodeString(string(body))
 	if err != nil {
 		return err
@@ -113,16 +116,8 @@ func decryptRequest(req *http.Request, aesKey *AesKey) error {
 	if err != nil {
 		return err
 	}
-	req.Body = readCloser{
-		Reader: io.MultiReader(bytes.NewReader(decryptBody)),
-		Closer: req.Body,
-	}
+	req.Body = io.NopCloser(bytes.NewReader(decryptBody))
 	return nil
-}
-
-type readCloser struct {
-	io.Closer
-	io.Reader
 }
 
 type AesKey struct {
