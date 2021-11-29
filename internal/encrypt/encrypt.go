@@ -79,7 +79,7 @@ func aesEncrypt(plainText, key, ivAes []byte) (cryptText []byte, err error) {
 		return nil, err
 	}
 	blockSize := block.BlockSize()
-	plainText = pKCS5Padding(plainText, blockSize)
+	plainText = pKCS7Padding(plainText, blockSize)
 
 	blockMode := cipher.NewCBCEncrypter(block, ivAes)
 	encrypted := make([]byte, len(plainText))
@@ -92,6 +92,12 @@ func pKCS5Padding(plainText []byte, blockSize int) []byte {
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
 	newText := append(plainText, padText...)
 	return newText
+}
+
+func pKCS7Padding(ciphertext []byte, blockSize int) []byte {
+	padding := blockSize - len(ciphertext)%blockSize
+	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(ciphertext, padText...)
 }
 
 func aesDecrypt(crypted, key, ivAes []byte) ([]byte, error) {
@@ -117,15 +123,24 @@ func aesDecrypt(crypted, key, ivAes []byte) ([]byte, error) {
 	decrypted := make([]byte, len(crypted))
 
 	blockMode.CryptBlocks(decrypted, crypted)
-	decrypted = pkcs5UnPadding(decrypted)
+	return pkcs7UnPadding(decrypted)
 
-	return decrypted, nil
 }
 
 func pkcs5UnPadding(decrypted []byte) []byte {
 	length := len(decrypted)
 	unPadding := int(decrypted[length-1])
 	return decrypted[:(length - unPadding)]
+}
+
+func pkcs7UnPadding(plantText []byte) ([]byte, error) {
+	length := len(plantText)
+	unPadding := int(plantText[length-1])
+	effectiveCount := length - unPadding
+	if effectiveCount <= 0 {
+		return nil, errors.New("The key does not support the ciphertext")
+	}
+	return plantText[:effectiveCount], nil
 }
 
 func rsaDecrypt(cryptText []byte) (plainText []byte, err error) {
