@@ -6,11 +6,25 @@ import (
 	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
 )
 
+// MustSecurity 强制必须加密
+func MustSecurity() gin.HandlerFunc {
+	return security(true)
+}
+
+// Security 只有请求头存在时加密
 func Security() gin.HandlerFunc {
+	return security(false)
+}
+
+func security(must bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		//1 解析header
+		// 1 解析header
 		authKey := encrypt.GetAuthToken(c.Request)
 		if len(authKey) == 0 {
+			if must {
+				c.AbortWithStatus(401)
+				return
+			}
 			c.Next()
 			return
 		}
