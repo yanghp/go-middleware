@@ -10,11 +10,12 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type aesKey struct {
@@ -124,17 +125,22 @@ func aesDecrypt(crypted, key, ivAes []byte) ([]byte, error) {
 
 	blockMode.CryptBlocks(decrypted, crypted)
 	return pkcs7UnPadding(decrypted)
-
 }
 
 func pkcs5UnPadding(decrypted []byte) []byte {
 	length := len(decrypted)
+	if length == 0 {
+		return nil
+	}
 	unPadding := int(decrypted[length-1])
 	return decrypted[:(length - unPadding)]
 }
 
 func pkcs7UnPadding(plantText []byte) ([]byte, error) {
 	length := len(plantText)
+	if length == 0 {
+		return nil, errors.New("pkcs7UnPadding: plantText is nil")
+	}
 	unPadding := int(plantText[length-1])
 	effectiveCount := length - unPadding
 	if effectiveCount <= 0 {
@@ -158,18 +164,18 @@ func rsaDecrypt(cryptText []byte) (plainText []byte, err error) {
 }
 
 func GetAesKeyFromAuth(auth string) (*aesKey, error) {
-	//2 解析key
+	// 2 解析key
 	split := strings.Split(auth, ":")
 	if len(split) != 2 {
 		return nil, errors.Errorf(fmt.Sprintf("X-AuthToken :[%s] illegal", auth))
 	}
 
-	//3 根据版本获取解密算法函数
+	// 3 根据版本获取解密算法函数
 	fn, ok := signAlgorithm[split[0]]
 	if !ok {
 		return nil, errors.Errorf("not find [%s] version encrypt", split[0])
 	}
-	//4 获取aeskey进行解密
+	// 4 获取aeskey进行解密
 	return fn(split[1])
 }
 
@@ -183,6 +189,9 @@ func DecryptRequest(req *http.Request, aesKey *aesKey) error {
 	}
 	defer req.Body.Close()
 
+	if len(body) == 0 {
+		return nil
+	}
 	decodeBody, err := base64.StdEncoding.DecodeString(string(body))
 	if err != nil {
 		return err
@@ -196,7 +205,7 @@ func DecryptRequest(req *http.Request, aesKey *aesKey) error {
 }
 
 func EncryptResponseBody(body []byte, aesKey *aesKey) (string, error) {
-	if body == nil {
+	if len(body) == 0 {
 		return "", nil
 	}
 	cryptBody, err := aesEncrypt(body, aesKey.key, aesKey.offset)

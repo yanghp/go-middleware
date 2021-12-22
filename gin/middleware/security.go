@@ -2,13 +2,14 @@ package middleware
 
 import (
 	"bytes"
+
 	"github.com/gin-gonic/gin"
 	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
 )
 
 func Security() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		//1 解析header
+		// 1 解析header
 		authKey := encrypt.GetAuthToken(c.Request)
 		if len(authKey) == 0 {
 			c.Next()

@@ -1,15 +1,16 @@
 package middleware
 
 import (
-	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+
+	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
 )
 
 func Security(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//1 解析header
+		// 1 解析header
 		authKey := encrypt.GetAuthToken(r)
 		if len(authKey) == 0 {
 			next.ServeHTTP(w, r)
