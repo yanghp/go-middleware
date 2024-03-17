@@ -24,26 +24,26 @@ type aesKey struct {
 	offset  []byte // AES秘钥向量
 }
 
-var signAlgorithm map[string]func(key string) (*aesKey, error)
+var signAlgorithm map[string]func(key, rasKey string) (*aesKey, error)
 
 func init() {
-	signAlgorithm = make(map[string]func(key string) (*aesKey, error))
+	signAlgorithm = make(map[string]func(key, rasKey string) (*aesKey, error))
 	signAlgorithm[version101] = algorithm101
 }
 
 const (
-	version101 = "101"
+	version101 = "v1"
 	// 版本升级可以往下加
 )
 
 // algorithm101 解密
-func algorithm101(key string) (*aesKey, error) {
+func algorithm101(key, rasKey string) (*aesKey, error) {
 	// base64 decode
 	body, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
 		return nil, err
 	}
-	rest, err := rsaDecrypt(body)
+	rest, err := rsaDecrypt(body, []byte(rasKey))
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +149,8 @@ func pkcs7UnPadding(plantText []byte) ([]byte, error) {
 	return plantText[:effectiveCount], nil
 }
 
-func rsaDecrypt(cryptText []byte) (plainText []byte, err error) {
-	block, _ := pem.Decode(privateKey)
+func rsaDecrypt(cryptText []byte, rasKey []byte) (plainText []byte, err error) {
+	block, _ := pem.Decode(rasKey)
 
 	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
@@ -163,7 +163,7 @@ func rsaDecrypt(cryptText []byte) (plainText []byte, err error) {
 	return plainText, nil
 }
 
-func GetAesKeyFromAuth(auth string) (*aesKey, error) {
+func GetAesKeyFromAuth(auth, aesKey string) (*aesKey, error) {
 	// 2 解析key
 	split := strings.Split(auth, ":")
 	if len(split) != 2 {
@@ -176,7 +176,7 @@ func GetAesKeyFromAuth(auth string) (*aesKey, error) {
 		return nil, errors.Errorf("not find [%s] version encrypt", split[0])
 	}
 	// 4 获取aeskey进行解密
-	return fn(split[1])
+	return fn(split[1], aesKey)
 }
 
 func DecryptRequest(req *http.Request, aesKey *aesKey) error {
@@ -220,26 +220,3 @@ func EncryptResponseBody(body []byte, aesKey *aesKey) (string, error) {
 func GetAuthToken(r *http.Request) string {
 	return r.Header.Get("X-AuthToken")
 }
-
-var privateKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
-MIICXQIBAAKBgQCSJo53ytY5fEXLerYz7vHqUc47uL/wIdye4gFpq9o9BxCFFP31
-0v3D/vMAA0xo/ZZYsDHI9/vtCZlwjbazGVZk+hXl32bG0e4+ZWzirgfpsEYefy2P
-ZQsPdCgWKFK6crkY9nPB0NuC3BJ4X7+m3wMcfWryscM0B0YM8aC2KgUEVwIDAQAB
-AoGBAIBaRDyIcuNBdLpjJqktbF/xQEHK2yY1VuBidAMt3hhCoAuAiBjgF+WNfjPA
-sdZy/xscglyRDTr7dzoV+yIHWoswY1vYl0JKLwstl2zEfOkvDsqfubIq7V1bfUBp
-eM+qoI2pDZVATpI0IBXw86SdzNipnXOmZVSdgRo1GA6pusIhAkEA728kiBiT8kQE
-zpLZmAw99gk2wBSmt+qLoQEbLbFirDOD4+Zd566yeVX9jZ6KaTEXslGONz8S2aPd
-HuimCpZcSwJBAJxDLQhMSECjx0biviYl4d3kVRS+V6fzqWDrijSJJDyDX/nTXwue
-tAOmJHT3eO7wAQdHKf/AVwm0g2Eg+tGNmKUCQQDfNoUfH5KlU4YLstmKJzeIbHSP
-Q3FdmhoLwkU9JtavZOM7DmNS/wlBlsnnQfsVMABAbEmh9Xo0TdBx5UAONLjbAkBn
-OGyXzaPwpv8s0PygQGfZ5klZYX6PoAHj1tM9btXz7yhH45smFth8jJQKe6pz0zAq
-uZSBr3EPJSGf2GQ2Zl1NAkA4J8g6rKLsYA/nH9jqaz0FoJLmwy0HkKZLm80GA8ez
-Ill1gTIfSdE1TV8sLd64HjLDnYr070yNy8/8PP6Mk/le
------END RSA PRIVATE KEY-----`)
-
-var publicKey = []byte(`-----BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCSJo53ytY5fEXLerYz7vHqUc47
-uL/wIdye4gFpq9o9BxCFFP310v3D/vMAA0xo/ZZYsDHI9/vtCZlwjbazGVZk+hXl
-32bG0e4+ZWzirgfpsEYefy2PZQsPdCgWKFK6crkY9nPB0NuC3BJ4X7+m3wMcfWry
-scM0B0YM8aC2KgUEVwIDAQAB
------END PUBLIC KEY-----`)

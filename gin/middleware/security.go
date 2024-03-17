@@ -4,33 +4,29 @@ import (
 	"bytes"
 
 	"github.com/gin-gonic/gin"
-	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
+	"github.com/yanghp/go-middleware/internal/encrypt"
 )
 
-// MustSecurity 强制必须加密
-func MustSecurity() gin.HandlerFunc {
-	return security(true)
+type rasSecurity struct {
+	rasKey string
 }
 
-// Security 只有请求头存在时加密
-func Security() gin.HandlerFunc {
-	return security(false)
+func NewRasSecurity(rasKey string) *rasSecurity {
+	return &rasSecurity{
+		rasKey: rasKey,
+	}
 }
 
-func security(must bool) gin.HandlerFunc {
+func (rs *rasSecurity) Encipher() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1 解析header
 		authKey := encrypt.GetAuthToken(c.Request)
 		if len(authKey) == 0 {
-			if must {
-				c.AbortWithStatus(401)
-				return
-			}
-			c.Next()
+			c.AbortWithStatus(401)
 			return
 		}
 
-		aesKey, err := encrypt.GetAesKeyFromAuth(authKey)
+		aesKey, err := encrypt.GetAesKeyFromAuth(authKey, rs.rasKey)
 		if err != nil {
 			c.AbortWithError(401, err)
 			return

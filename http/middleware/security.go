@@ -5,32 +5,28 @@ import (
 	"net/http/httptest"
 	"strconv"
 
-	"glab.tagtic.cn/ad_gains/go-middleware/internal/encrypt"
+	"github.com/yanghp/go-middleware/internal/encrypt"
 )
 
-// MustSecurity 强制必须加密
-func MustSecurity(next http.Handler) http.Handler {
-	return security(next, true)
+type rasSecurity struct {
+	rasKey string
 }
 
-// Security 只有请求头存在时加密
-func Security(next http.Handler) http.Handler {
-	return security(next, false)
+func NewRasSecurity(rasKey string) *rasSecurity {
+	return &rasSecurity{
+		rasKey: rasKey,
+	}
 }
 
-func security(next http.Handler, must bool) http.Handler {
+func (rs *rasSecurity) Encipher(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1 解析header
 		authKey := encrypt.GetAuthToken(r)
 		if len(authKey) == 0 {
-			if must {
-				unAuthorized(w, "")
-				return
-			}
-			next.ServeHTTP(w, r)
+			unAuthorized(w, "")
 			return
 		}
-		aesKey, err := encrypt.GetAesKeyFromAuth(authKey)
+		aesKey, err := encrypt.GetAesKeyFromAuth(authKey, rs.rasKey)
 		if err != nil {
 			unAuthorized(w, err.Error())
 			return

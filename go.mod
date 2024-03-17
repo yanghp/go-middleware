@@ -1,4 +1,4 @@
-module glab.tagtic.cn/ad_gains/go-middleware
+module github.com/yanghp/go-middleware
 
 go 1.16
 
